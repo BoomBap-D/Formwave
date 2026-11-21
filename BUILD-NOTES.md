@@ -20,3 +20,5 @@ complete at first look.
 Next step for Windows/Mac: create a GitHub repo for Formwave, upload the
 GitHub-Ready package contents, and its own workflow builds Windows (x64 +
 32-bit) and Mac automatically.
+
+- Nov 21, 2026 (Koda): the first GitHub run failed before any job started — the workflow's upload-artifact step used a one-line { } block that YAML cannot parse around ${{ }}. Fix prepared: expand that 'with:' block to indented lines (same change for the macOS step). Workflow file itself must be updated with the fixed version.
