@@ -92,7 +92,7 @@ static void testSound()
     CHECK (std::fabs (c - 523.25 * 0.5) < 3.0, "additive oscillator with only harmonic 2 sounds an octave up");
 
     // envelope: a one-shot ends by itself, a note ends after release
-    Engine e; e.prepare (44100.0);
+    auto eOwner = std::make_unique<Engine>(); Engine& e = *eOwner; e.prepare (44100.0);   // heap: Engine is ~0.5 MB, three on the stack overflow Windows' 1 MB default
     Patch k = factoryBank()[0];
     e.setPatch (k.v.data());
     std::vector<float> L (44100 * 4), R (44100 * 4);
@@ -114,14 +114,14 @@ static void testSound()
 
     // pitch bend moves the pitch by two semitones
     Patch s = Patch::init(); s.v[P_LEVEL] = 0; s.v[P_A] = 0.001f; s.v[P_S] = 1.0f;
-    Engine e2; e2.prepare (44100.0); e2.setPatch (s.v.data()); e2.setBend (2.0f); e2.noteOn (69, 1.0f);
+    auto e2Owner = std::make_unique<Engine>(); Engine& e2 = *e2Owner; e2.prepare (44100.0); e2.setPatch (s.v.data()); e2.setBend (2.0f); e2.noteOn (69, 1.0f);
     std::vector<float> bl (44100), br (44100); e2.process (bl.data(), br.data(), 44100);
     c = 0; for (size_t i = 5001; i < 5000 + 22050; ++i) if (bl[i - 1] <= 0 && bl[i] > 0) ++c;
     CHECK (std::fabs (c - 493.88 * 0.5) < 3.0, "pitch bend +2 semitones raises A4 to B4");
 
     // output never exceeds 1.0 even when everything is turned up
     Patch loud = Patch::init(); loud.v[P_LEVEL] = 18; loud.v[P_DRIVE] = 6; loud.v[P_S] = 1;
-    Engine e3; e3.prepare (44100.0); e3.setPatch (loud.v.data());
+    auto e3Owner = std::make_unique<Engine>(); Engine& e3 = *e3Owner; e3.prepare (44100.0); e3.setPatch (loud.v.data());
     for (int n : { 48, 52, 55, 60, 64, 67 }) e3.noteOn (n, 1.0f);
     std::vector<float> ol (44100), orr (44100); e3.process (ol.data(), orr.data(), 44100);
     float pk = 0; for (float x : ol) pk = std::max (pk, std::fabs (x));
@@ -132,7 +132,7 @@ static void testFxAndPresets()
 {
     std::printf ("effects and presets\n");
     Patch p = Patch::init(); p.v[P_LEVEL] = 0; p.v[P_RV_MIX] = 0.5f; p.v[P_DL_MIX] = 0.4f; p.v[P_CH_MIX] = 0.5f; p.v[P_A] = 0.001f; p.v[P_D] = 0.05f; p.v[P_S] = 0.0f;
-    Engine e; e.prepare (48000.0); e.setPatch (p.v.data());
+    auto eOwner = std::make_unique<Engine>(); Engine& e = *eOwner; e.prepare (48000.0); e.setPatch (p.v.data());
     e.noteOn (60, 1.0f);
     std::vector<float> L (48000 * 3), R (48000 * 3);
     e.process (L.data(), R.data(), (int) L.size());
