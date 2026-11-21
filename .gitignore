@@ -1,0 +1,6 @@
+build/
+dist/
+*.wav
+.vs/
+core_tests
+CMakeUserPresets.json

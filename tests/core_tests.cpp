@@ -45,7 +45,8 @@ static void testBank()
 {
     std::printf ("factory bank\n");
     const auto& bank = factoryBank();
-    CHECK (bank.size() >= 50, "at least 50 factory presets");
+    CHECK (bank.size() >= 200, "at least 200 factory presets");
+    { std::set<std::string> names; for (const auto& p : bank) names.insert (p.name); CHECK (names.size() == bank.size(), "preset names are unique"); }
     int bad = 0, hot = 0;
     for (const auto& p : bank)
         for (int note : { 36, 60, 84 })
@@ -60,7 +61,7 @@ static void testBank()
     CHECK (hot == 0, "calibrated presets stay under 2.5 peak");
     int seen = 0; std::set<std::string> cats;
     for (const auto& p : bank) { cats.insert (p.category); ++seen; }
-    CHECK (cats.size() == 11, "eleven categories");
+    CHECK (cats.size() == 13, "thirteen categories");
 
     // extreme settings must stay finite
     Patch x = bank[40];

@@ -2,7 +2,7 @@
 
 A sound-design synthesizer for hip-hop and beyond, as a **VST3 instrument** and a **standalone app**.
 You can see every sound form: draggable harmonic bars, a live oscilloscope, a spectrum and a scrolling
-spectrogram. Every sound is made from oscillators, noise, filters and envelopes, so all 67 factory presets
+spectrogram. Every sound is made from oscillators, noise, filters and envelopes, so all 203 factory presets
 are editable starting points. (Formwave is a working name; check it for trademark conflicts before release.)
 
 **Version 0.1.** Read "Status" before you rely on anything.
@@ -16,7 +16,7 @@ are editable starting points. (Formwave is a working name; check it for trademar
 - Amp ADSR for notes, or a one-shot length for drums, plus a rising mode for risers
 - Vibrato, glide, mono mode; pitch bend, mod wheel and sustain pedal
 - Chorus, ping-pong delay, reverb; output limiter
-- 67 factory presets in 11 categories: kicks, 808s, snares, claps, hats and cymbals, percussion, bass, keys,
+- 203 factory presets in 13 categories: kicks, 808s, snares, claps, hats and cymbals, percussion, plucks, strings and brass, bass, keys,
   leads, pads, FX. Save your own (Documents/Formwave/Presets, plain text `.fwp` files).
 - Resizable window, every knob is a host-automatable parameter, double-click a knob to reset it
 

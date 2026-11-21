@@ -1,5 +1,5 @@
 #pragma once
-// Authoring data for the 67 factory presets, written with a small builder. Bank.h converts each one
+// Authoring data for the factory presets (first 67 here, 136 more in FactoryExtra.h), written with a small builder. Bank.h converts each one
 // into a full parameter Patch, so every factory sound is an editable starting point.
 #include <string>
 #include <vector>
@@ -87,6 +87,10 @@ struct AuthoringPreset
     AuthoringPreset& rising() { rise = true; return *this; }
 };
 
+} // namespace fw
+#include "FactoryExtra.h"
+namespace fw
+{
 inline const std::vector<AuthoringPreset>& authoringPresets()
 {
     static const std::vector<AuthoringPreset> list = []
@@ -192,6 +196,7 @@ inline const std::vector<AuthoringPreset>& authoringPresets()
         add ("FX", "Vinyl Crackle").D (200, 2).noise (K::Crackle, F::Hp, 800, .5f, 1, 50);
         add ("FX", "Impact").D (38, 2.6f).osc (W::Sine).pitchEnv (12, .2f).noise (K::Pink, F::Lp, 600, .7f, .8f, 1.2f).drv (1.5f);
         add ("FX", "Air Horn").N (0, .02f, .05f, .95f, .08f).osc (W::Saw).osc (W::Saw, .8f, 1, 12).osc (W::Saw, .6f, 1.2599f).filter (F::Lp, 3000, .8f).vibrato (7, 8, .1f).drv (1.2f);
+        addExtraPresets (add);
         return v;
     }();
     return list;
