@@ -1,0 +1,30 @@
+name: Build Formwave
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  windows:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix: { arch: [x64, Win32] }
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }}
+      - run: cmake --build build --config Release --target Formwave_VST3 Formwave_Standalone core_tests
+      - run: ctest --test-dir build -C Release --output-on-failure
+      - name: Collect
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item -Recurse build/Formwave_artefacts/Release/VST3 dist/VST3
+          Copy-Item -Recurse build/Formwave_artefacts/Release/Standalone dist/Standalone
+      - uses: actions/upload-artifact@v4
+        with: { name: Formwave-windows-${{ matrix.arch }}, path: dist }
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -G Xcode -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+      - run: cmake --build build --config Release --target Formwave_VST3 Formwave_AU Formwave_Standalone core_tests
+      - run: ctest --test-dir build -C Release --output-on-failure
+      - uses: actions/upload-artifact@v4
+        with: { name: Formwave-macos, path: build/Formwave_artefacts/Release }
