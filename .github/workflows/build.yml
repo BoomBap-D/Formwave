@@ -18,7 +18,9 @@ jobs:
           Copy-Item -Recurse build/Formwave_artefacts/Release/VST3 dist/VST3
           Copy-Item -Recurse build/Formwave_artefacts/Release/Standalone dist/Standalone
       - uses: actions/upload-artifact@v4
-        with: { name: Formwave-windows-${{ matrix.arch }}, path: dist }
+        with:
+          name: Formwave-windows-${{ matrix.arch }}
+          path: dist
   macos:
     runs-on: macos-14
     steps:
@@ -27,4 +29,6 @@ jobs:
       - run: cmake --build build --config Release --target Formwave_VST3 Formwave_AU Formwave_Standalone core_tests
       - run: ctest --test-dir build -C Release --output-on-failure
       - uses: actions/upload-artifact@v4
-        with: { name: Formwave-macos, path: build/Formwave_artefacts/Release }
+        with:
+          name: Formwave-macos
+          path: build/Formwave_artefacts/Release
