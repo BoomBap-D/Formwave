@@ -67,8 +67,16 @@ public:
         val.addCentredArc (c.x, c.y, r - 1.5f, r - 1.5f, 0.0f, std::min (zero, angle), std::max (zero, angle), true);
         g.setColour (s.isEnabled() ? teal : dim);
         g.strokePath (val, juce::PathStrokeType (3.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-        g.setColour (panel2);
+        if (pos > 0.001f || bipolar)
+        {
+            g.setColour (teal.withAlpha (0.10f));
+            g.strokePath (val, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        }
+        juce::ColourGradient cap (juce::Colour (0xff2a2e35), c.x, c.y - r * 0.62f, juce::Colour (0xff181b20), c.x, c.y + r * 0.62f, false);
+        g.setGradientFill (cap);
         g.fillEllipse (c.x - r * 0.62f, c.y - r * 0.62f, r * 1.24f, r * 1.24f);
+        g.setColour (juce::Colour (0xff343941));
+        g.drawEllipse (c.x - r * 0.62f, c.y - r * 0.62f, r * 1.24f, r * 1.24f, 0.8f);
         const float px = c.x + std::sin (angle) * r * 0.58f, py = c.y - std::cos (angle) * r * 0.58f;
         g.setColour (text);
         g.drawLine (c.x + std::sin (angle) * r * 0.2f, c.y - std::cos (angle) * r * 0.2f, px, py, 2.0f);
@@ -81,7 +89,7 @@ public:
         if (down) c = c.brighter (0.2f);
         g.setColour (c);
         g.fillRoundedRectangle (b.getLocalBounds().toFloat().reduced (0.5f), 4.0f);
-        g.setColour (line);
+        g.setColour (b.getToggleState() && c != teal ? teal.withAlpha (0.5f) : line);
         g.drawRoundedRectangle (b.getLocalBounds().toFloat().reduced (0.5f), 4.0f, 1.0f);
     }
 

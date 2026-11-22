@@ -2,10 +2,10 @@
 
 A sound-design synthesizer for hip-hop and beyond, as a **VST3 instrument** and a **standalone app**.
 You can see every sound form: draggable harmonic bars, a live oscilloscope, a spectrum and a scrolling
-spectrogram. Every sound is made from oscillators, noise, filters and envelopes, so all 203 factory presets
+spectrogram. Every sound is made from oscillators, noise, filters and envelopes, so all 218 factory presets
 are editable starting points. (Formwave is a working name; check it for trademark conflicts before release.)
 
-**Version 0.1.** Read "Status" before you rely on anything.
+**Version 0.4.** Read "Status" before you rely on anything.
 
 ## What it does
 
@@ -15,9 +15,11 @@ are editable starting points. (Formwave is a working name; check it for trademar
 - Filter (low, high, band) with envelope, key tracking and LFO; drive
 - Amp ADSR for notes, or a one-shot length for drums, plus a rising mode for risers
 - Vibrato, glide, mono mode; pitch bend, mod wheel and sustain pedal
+- **Unison** (up to 7 detuned, stereo-spread voices), **two LFOs** (sine, triangle, saw, square, random) aimed at pitch, cutoff, level, FM amount or pan, velocity to level and cutoff, mod wheel to vibrato and cutoff (Modulation tab)
 - Chorus, ping-pong delay, reverb; output limiter
-- 203 factory presets in 13 categories: kicks, 808s, snares, claps, hats and cymbals, percussion, plucks, strings and brass, bass, keys,
+- 218 factory presets in 13 categories: kicks, 808s, snares, claps, hats and cymbals, percussion, plucks, strings and brass, bass, keys,
   leads, pads, FX. Save your own (Documents/Formwave/Presets, plain text `.fwp` files).
+- Interface (v0.3): searchable preset browser with category chips and favourites, tabbed display (harmonics, waveform, spectrum and spectrogram), draggable filter curve, glyph wave selectors, on-screen pitch and mod wheels, A/B compare, and a status bar that explains what you hover over
 - Resizable window, every knob is a host-automatable parameter, double-click a knob to reset it
 
 ## Build on Windows
@@ -48,7 +50,7 @@ The VST3 SDK has its own terms. Confirm both before release.
 
 ## Status
 
-Tested (`tests/core_tests.cpp`, no JUCE needed, 26 checks): parameter table, all 67 presets render finite and
+Tested (`tests/core_tests.cpp`, no JUCE needed, 40 checks): parameter table, all 67 presets render finite and
 audible at three pitches and extreme settings, pitch accuracy, additive oscillator, note lifecycle, sustain
 pedal, pitch bend, output limiter, effects tails and stereo, preset file round trip.
 

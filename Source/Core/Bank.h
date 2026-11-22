@@ -134,6 +134,13 @@ inline Patch fromAuthoring (const AuthoringPreset& a)
     set (P_LEN, a.len); set (P_RISE, a.rise ? 1.0f : 0.0f);
     if (a.vib) { set (P_VIB_HZ, a.vibHz); set (P_VIB_DEP, a.vibDep); set (P_VIB_DLY, a.vibDelay); }
     set (P_GLIDE, a.glide); set (P_MONO, a.mono ? 1.0f : 0.0f);
+    set (P_UNI_N, (float) (a.uniN - 1)); set (P_UNI_DET, a.uniDet); set (P_UNI_WID, a.uniWid);
+    for (int k = 0; k < 2; ++k)
+    {
+        set (lfoIdx (k, L_RATE), a.lfo[k].rate); set (lfoIdx (k, L_SHAPE), (float) a.lfo[k].shape);
+        set (lfoIdx (k, L_DEP), a.lfo[k].dep);   set (lfoIdx (k, L_DEST), (float) a.lfo[k].dest);
+    }
+    set (P_VEL_CUT, a.velCut);
     return p;
 }
 

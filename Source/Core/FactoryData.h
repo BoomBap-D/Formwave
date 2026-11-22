@@ -60,6 +60,9 @@ struct AuthoringPreset
     float glide = 0.0f;
     bool mono = false;
     float trim = 1.0f;        // filled by SynthEngine::calibrate
+    int uniN = 1;  float uniDet = 0.0f, uniWid = 0.7f;      // unison voices, detune (cents), stereo spread
+    struct Lfo { int shape = 0, dest = 0; float rate = 2.0f, dep = 0.0f; } lfo[2];
+    float velCut = 0.0f;      // velocity to cutoff (octaves)
 
     // ---- tiny builder ----
     AuthoringPreset& D (float baseHz, float length) { drum = true; hz = baseHz; len = length; return *this; }
@@ -85,6 +88,9 @@ struct AuthoringPreset
     AuthoringPreset& vibrato (float rate, float depthCents, float delay) { vib = true; vibHz = rate; vibDep = depthCents; vibDelay = delay; return *this; }
     AuthoringPreset& slide (float t) { glide = t; mono = true; return *this; }
     AuthoringPreset& rising() { rise = true; return *this; }
+    AuthoringPreset& uni (int n, float det, float wid) { uniN = n; uniDet = det; uniWid = wid; return *this; }
+    // shape: 0 sine, 1 triangle, 2 saw, 3 square, 4 random.  dest: 1 pitch, 2 cutoff, 3 level, 4 FM amount, 5 pan
+    AuthoringPreset& lfoTo (int slot, int shape, float rate, float depth, int dest) { lfo[slot] = { shape, dest, rate, depth }; return *this; }
 };
 
 } // namespace fw
@@ -197,6 +203,7 @@ inline const std::vector<AuthoringPreset>& authoringPresets()
         add ("FX", "Impact").D (38, 2.6f).osc (W::Sine).pitchEnv (12, .2f).noise (K::Pink, F::Lp, 600, .7f, .8f, 1.2f).drv (1.5f);
         add ("FX", "Air Horn").N (0, .02f, .05f, .95f, .08f).osc (W::Saw).osc (W::Saw, .8f, 1, 12).osc (W::Saw, .6f, 1.2599f).filter (F::Lp, 3000, .8f).vibrato (7, 8, .1f).drv (1.2f);
         addExtraPresets (add);
+        applyModLayer (v);
         return v;
     }();
     return list;

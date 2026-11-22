@@ -172,5 +172,49 @@ inline void addExtraPresets (Add&& add)
     add ("FX", "Cinematic Boom").D (36, 3.2f).osc (W::Sine).pitchEnv (10, .3f).noise (K::Pink, F::Lp, 500, .7f, 1, 2.2f).drv (1.8f);
     add ("FX", "Gun Shot").D (120, .5f).osc (W::Sine).pitchEnv (20, .05f).noise (K::White, F::Hp, 1200, .6f, 1.3f, .35f).drv (2.5f);
     add ("FX", "Vinyl Pops").D (200, 1.5f).noise (K::Crackle, F::Bp, 3000, .8f, 1.3f, 50).drv (.6f);
+
+    // ---- Wide and moving sounds (use unison and the LFOs) ----
+    add ("Leads", "Super Saw Lead").N (0, .01f, .1f, .85f, .25f).osc (W::Saw).filter (F::Lp, 5200, .8f).uni (7, 22, 1);
+    add ("Leads", "Wide Sine Lead").N (0, .02f, .1f, .9f, .2f).osc (W::Sine).osc (W::Sine, .2f, 2).vibrato (5.2f, 14, .25f).uni (3, 8, .6f);
+    add ("Leads", "Wobble Lead").N (0, .01f, .1f, .9f, .2f).osc (W::Saw).osc (W::Saw, .8f, 1, 9).filter (F::Lp, 1800, 6).lfoTo (0, 0, 3, .55f, 2);
+    add ("Leads", "Siren Lead").N (0, .02f, .1f, 1, .15f).osc (W::Square).filter (F::Lp, 3000, 1).lfoTo (0, 1, 5.5f, .35f, 1);
+    add ("Pads", "Huge Pad").N (-1, .6f, .5f, .9f, 1.8f).osc (W::Saw).osc (W::Saw, .7f, 1, 5).filter (F::Lp, 1800, .7f).uni (7, 26, 1);
+    add ("Pads", "Pan Drift Pad").N (-1, .9f, .5f, .9f, 1.8f).osc (W::Saw, 1, 1, -8).osc (W::Saw, 1, 1, 8).filter (F::Lp, 1100, .8f).uni (3, 12, .5f).lfoTo (0, 0, .12f, .8f, 5);
+    add ("Pads", "Tremolo Pad").N (-1, .5f, .4f, .9f, 1.4f).osc (W::Tri).osc (W::Sine, .5f, 2).filter (F::Lp, 1600).lfoTo (0, 0, 4, .4f, 3);
+    add ("Bass", "Wide Reese").N (-2, .03f, .3f, .9f, .3f).osc (W::Saw).osc (W::Saw, .7f, .5f).filter (F::Lp, 700, 2).uni (5, 24, .9f).drv (.6f);
+    add ("Bass", "Wobble Sub").N (-2, .01f, .1f, 1, .15f).osc (W::Saw).osc (W::Sine, .8f, .5f).filter (F::Lp, 500, 7).lfoTo (0, 0, 1.6f, .6f, 2).drv (1);
+    add ("Bass", "Gated Bass").N (-2, .002f, .1f, 1, .05f).osc (W::Saw).osc (W::Square, .5f, .5f).filter (F::Lp, 600, 2).lfoTo (0, 3, 8, 1, 3);
+    add ("Keys", "Tremolo Rhodes").N (-1, .002f, 1.4f, .25f, .6f).osc (W::Sine).osc (W::Sine, .25f, 2).fmod (14, .2f, .1f).lfoTo (0, 0, 5.5f, .45f, 3);
+    add ("Keys", "Auto-pan Keys").N (-1, .003f, .9f, .25f, .4f).osc (W::Tri).osc (W::Sine, .3f, 2).lfoTo (0, 1, 3, 1, 5);
+    add ("Plucks", "Wide Pluck").N (0, .002f, .5f, 0, .15f).osc (W::Saw).osc (W::Square, .4f, 1, 6).filter (F::Lp, 2400, 1.5f, 2.5f, .25f).uni (3, 12, .8f);
+    add ("FX", "Pitch Drift Drone").N (-1, .6f, .3f, 1, 1.5f).osc (W::Saw).osc (W::Saw, .8f, 1, 7).filter (F::Lp, 900, 1.5f).uni (5, 30, 1).lfoTo (0, 0, .3f, .3f, 1);
+    add ("FX", "Alarm").N (0, .005f, .1f, 1, .1f).osc (W::Square).filter (F::Lp, 2600, 1).lfoTo (0, 3, 3, .8f, 1);
+}
+
+// Gives existing presets unison, a little movement, or velocity-controlled brightness, by name.
+inline void applyModLayer (std::vector<AuthoringPreset>& v)
+{
+    struct U { const char* name; int n; float det, wid; };
+    static const U unis[] {
+        { "Warm Pad", 3, 14, .8f }, { "Dark Strings", 3, 10, .8f }, { "Choir Pad", 3, 12, .7f }, { "Lush Strings Pad", 4, 16, .9f },
+        { "Dream Pad", 3, 12, .9f }, { "Wide Saw Pad", 5, 22, 1 }, { "Night Drive Pad", 4, 18, .9f }, { "Cinematic Pad", 4, 14, 1 },
+        { "Sweep Pad", 3, 14, .8f }, { "Chamber Strings", 3, 12, .8f }, { "Brass Section", 3, 10, .5f }, { "Saw Lead", 3, 16, .6f },
+        { "Detuned Saw Lead", 5, 20, .8f }, { "Synth Brass Lead", 3, 12, .6f }, { "Reese", 3, 16, .8f }, { "Neuro Bass", 3, 18, .8f },
+        { "Dark Trap Lead", 3, 14, .7f }, { "Mono Lead", 2, 12, .5f }, { "Accordion", 2, 10, .5f }, { "Soul Horn Stab", 2, 8, .4f },
+        { "Orchestra Hit", 3, 14, .8f }, { "Violin Lead", 2, 8, .4f }, { "Cello Swell", 2, 10, .5f }, { "Air Horn", 3, 14, .5f }
+    };
+    struct M { const char* name; int shape; float rate, dep; int dest; };
+    static const M moves[] {
+        { "Vibes", 0, 5, .35f, 3 }, { "Soul EP", 0, 4.5f, .25f, 3 }, { "Dark EP", 0, 4, .2f, 3 },
+        { "Vinyl Haze", 0, .2f, .15f, 2 }, { "Ambient Pad", 0, .15f, .6f, 5 }, { "Breath Pad", 0, .1f, .5f, 5 }
+    };
+    struct VC { const char* name; float oct; };
+    static const VC vels[] { { "Pluck Lead", 1.5f }, { "Clav", 1.5f }, { "Funk Pluck Bass", 1.5f }, { "Brass Section", 1.0f }, { "Trumpet Stab", 1.2f } };
+    for (auto& p : v)
+    {
+        for (const auto& u : unis) if (p.name == u.name) p.uni (u.n, u.det, u.wid);
+        for (const auto& m : moves) if (p.name == m.name) p.lfoTo (0, m.shape, m.rate, m.dep, m.dest);
+        for (const auto& c : vels) if (p.name == c.name) p.velCut = c.oct;
+    }
 }
 } // namespace fw

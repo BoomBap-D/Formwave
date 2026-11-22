@@ -26,15 +26,23 @@ enum Pid : int
     P_DL_TIME, P_DL_FB, P_DL_MIX,
     P_RV_SIZE, P_RV_DAMP, P_RV_MIX,
     P_LEVEL,           // output level in dB (factory presets store their calibrated level here)
+    P_UNI_N, P_UNI_DET, P_UNI_WID,          // unison: voices (index = count - 1), detune in cents, stereo spread
+    P_LFO0,                                 // 2 LFOs x 4 fields (see LfoField)
+    P_VEL_AMP = P_LFO0 + 8, P_VEL_CUT,      // velocity to level, velocity to filter cutoff (octaves)
+    P_MW_VIB, P_MW_CUT,                     // mod wheel to vibrato depth (cents), to filter cutoff (octaves)
     P_COUNT
 };
 
 enum OscField { O_WAVE = 0, O_RATIO, O_CENTS, O_LEVEL, O_DECAY };
+enum LfoField { L_RATE = 0, L_SHAPE, L_DEP, L_DEST };
+enum LfoShape { LS_SINE = 0, LS_TRI, LS_SAW, LS_SQUARE, LS_RANDOM };
+enum LfoDest { LD_OFF = 0, LD_PITCH, LD_CUTOFF, LD_AMP, LD_FM, LD_PAN };
 enum Wave { W_SINE = 0, W_TRI, W_SAW, W_SQUARE, W_ADD, W_METAL };
 enum NoiseKind { NK_WHITE = 0, NK_PINK, NK_CRACKLE };
 enum FiltType { FT_LP = 0, FT_HP, FT_BP };
 
 constexpr int oscIdx (int osc, int field) { return P_OSC0 + osc * 5 + field; }
+constexpr int lfoIdx (int lfo, int field) { return P_LFO0 + lfo * 4 + field; }
 
 enum ParamType { PT_FLOAT = 0, PT_CHOICE, PT_BOOL };
 
@@ -119,6 +127,21 @@ inline const std::vector<ParamDef>& paramTable()
         F ("rv_damp", "Reverb Damping", "Reverb", 0, 1, 0.5f);
         F ("rv_mix", "Reverb Mix", "Reverb", 0, 1, 0);
         F ("level", "Level", "Output", -36, 18, 0, "dB");
+        C ("uni_n", "Unison Voices", "Unison", { "1", "2", "3", "4", "5", "6", "7" }, 0);
+        F ("uni_det", "Unison Detune", "Unison", 0, 60, 15, "ct");
+        F ("uni_wid", "Unison Spread", "Unison", 0, 1, 0.7f);
+        for (int i = 0; i < 2; ++i)
+        {
+            const std::string n = std::to_string (i + 1), p = "lfo" + n + "_", g = "LFO " + n;
+            F ((p + "rate").c_str(), ("LFO " + n + " Rate").c_str(), g.c_str(), 0.05f, 20, i == 0 ? 2.0f : 5.0f, "Hz", 0.4f);
+            C ((p + "shape").c_str(), ("LFO " + n + " Shape").c_str(), g.c_str(), { "Sine", "Triangle", "Saw", "Square", "Random" }, 0);
+            F ((p + "dep").c_str(), ("LFO " + n + " Depth").c_str(), g.c_str(), 0, 1, 0, "");
+            C ((p + "dest").c_str(), ("LFO " + n + " Target").c_str(), g.c_str(), { "Off", "Pitch", "Cutoff", "Level", "FM Amount", "Pan" }, 0);
+        }
+        F ("vel_amp", "Velocity to Level", "Velocity", 0, 1, 1, "");
+        F ("vel_cut", "Velocity to Cutoff", "Velocity", 0, 4, 0, "oct");
+        F ("mw_vib", "Mod Wheel Vibrato", "Mod Wheel", 0, 100, 60, "ct");
+        F ("mw_cut", "Mod Wheel Cutoff", "Mod Wheel", 0, 3, 0, "oct");
         return v;
     }();
     return t;

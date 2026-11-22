@@ -45,7 +45,7 @@ static void testBank()
 {
     std::printf ("factory bank\n");
     const auto& bank = factoryBank();
-    CHECK (bank.size() >= 200, "at least 200 factory presets");
+    CHECK (bank.size() >= 215, "at least 215 factory presets");
     { std::set<std::string> names; for (const auto& p : bank) names.insert (p.name); CHECK (names.size() == bank.size(), "preset names are unique"); }
     int bad = 0, hot = 0;
     for (const auto& p : bank)
@@ -93,13 +93,14 @@ static void testSound()
     CHECK (std::fabs (c - 523.25 * 0.5) < 3.0, "additive oscillator with only harmonic 2 sounds an octave up");
 
     // envelope: a one-shot ends by itself, a note ends after release
-    auto eOwner = std::make_unique<Engine>(); Engine& e = *eOwner; e.prepare (44100.0);   // heap: Engine is ~0.5 MB, three on the stack overflow Windows' 1 MB default
+    auto eOwner = std::make_unique<Engine>(); Engine& e = *eOwner; e.prepare (44100.0);   // heap: Engine is ~0.5 MB; several on the stack overflow Windows' 1 MB default
     Patch k = factoryBank()[0];
     e.setPatch (k.v.data());
     std::vector<float> L (44100 * 4), R (44100 * 4);
     e.noteOn (60, 1.0f); e.process (L.data(), R.data(), (int) L.size());
     CHECK (e.activeVoices() == 0, "one-shot voice frees itself");
     Patch pad = factoryBank()[50]; for (const auto& q : factoryBank()) if (q.name == "Warm Pad") pad = q;
+    pad.v[P_UNI_N] = 0;   // single voice, so voice counts below are exact
     e.setPatch (pad.v.data()); e.noteOn (60, 1.0f);
     e.process (L.data(), R.data(), 22050);
     CHECK (e.activeVoices() == 1, "held note keeps sounding");
@@ -127,6 +128,67 @@ static void testSound()
     std::vector<float> ol (44100), orr (44100); e3.process (ol.data(), orr.data(), 44100);
     float pk = 0; for (float x : ol) pk = std::max (pk, std::fabs (x));
     CHECK (pk <= 1.0f && pk > 0.5f, "output limiter holds a six-note chord at +18 dB under 1.0");
+}
+
+
+static void testMod()
+{
+    std::printf("unison, LFOs and velocity\n");
+    auto zc = [] (const std::vector<float>& b, size_t from, size_t to) { int c = 0; for (size_t i = from + 1; i < to; ++i) if (b[i - 1] <= 0 && b[i] > 0) ++c; return c; };
+    Patch base = Patch::init(); base.v[P_LEVEL] = 0; base.v[P_A] = 0.001f; base.v[P_S] = 1.0f; base.v[oscIdx (0, O_WAVE)] = W_SAW;
+
+    // unison: 7 copies, stereo spread, still bounded
+    Patch u = base; u.v[P_UNI_N] = 6; u.v[P_UNI_DET] = 25; u.v[P_UNI_WID] = 1.0f;
+    auto eOwner = std::make_unique<Engine>(); Engine& e = *eOwner; e.prepare (44100.0); e.setPatch (u.v.data()); e.noteOn (57, 1.0f);
+    CHECK (e.activeVoices() == 7, "unison 7 starts seven voices");
+    std::vector<float> L (44100 * 3), R (44100 * 3); e.process (L.data(), R.data(), 44100);
+    double diff = 0, mono = 0; float pk = 0;
+    for (size_t i = 0; i < 44100; ++i) { diff += std::fabs (L[i] - R[i]); mono += std::fabs (L[i] + R[i]); pk = std::max (pk, std::fabs (L[i])); }
+    CHECK (diff > 0.05 * mono, "unison spreads the voices across the stereo field");
+    CHECK (pk <= 1.0f && pk > 0.05f, "unison stays audible and under 1.0");
+    e.noteOff (57); e.process (L.data(), R.data(), 44100 * 3);
+    CHECK (e.activeVoices() == 0, "all unison voices release together");
+    // sustain pedal must hold and release every unison voice
+    e.noteOn (60, 1.0f); e.setSustain (true); e.noteOff (60); e.process (L.data(), R.data(), 44100 * 2);
+    CHECK (e.activeVoices() == 7, "sustain pedal holds all unison voices");
+    e.setSustain (false); e.process (L.data(), R.data(), 44100 * 3);
+    CHECK (e.activeVoices() == 0, "all unison voices end after the pedal lifts");
+
+    // one voice with no LFO is unchanged: left equals right
+    auto e1Owner = std::make_unique<Engine>(); Engine& e1 = *e1Owner; e1.prepare (44100.0); e1.setPatch (base.v.data()); e1.noteOn (60, 1.0f);
+    e1.process (L.data(), R.data(), 44100);
+    double d1 = 0; for (size_t i = 0; i < 44100; ++i) d1 += std::fabs (L[i] - R[i]);
+    CHECK (d1 < 1e-6, "single voice stays centred");
+
+    // LFO to level: the amplitude swings; to pitch: frequency changes over time; to pan: left and right differ
+    Patch t = base; t.v[oscIdx (0, O_WAVE)] = W_SINE; t.v[lfoIdx (0, L_DEST)] = LD_AMP; t.v[lfoIdx (0, L_DEP)] = 1.0f; t.v[lfoIdx (0, L_RATE)] = 4.0f;
+    auto b = renderPatch (t, 60, 1.0f, 1.0f);
+    float lo = 10, hi = 0;
+    for (size_t i = 0; i + 441 < b.size() && i < 44100; i += 441) { float m = 0; for (size_t j = 0; j < 441; ++j) m = std::max (m, std::fabs (b[i + j])); lo = std::min (lo, m); hi = std::max (hi, m); }
+    CHECK (hi > 0.2f && lo < 0.25f * hi, "LFO to level swings the volume (tremolo)");
+    Patch pt = base; pt.v[oscIdx (0, O_WAVE)] = W_SINE; pt.v[lfoIdx (0, L_DEST)] = LD_PITCH; pt.v[lfoIdx (0, L_DEP)] = 1.0f; pt.v[lfoIdx (0, L_RATE)] = 1.0f; pt.v[lfoIdx (0, L_SHAPE)] = LS_SAW;
+    auto bp = renderPatch (pt, 60, 1.0f, 1.0f);
+    const int c1 = zc (bp, 2000, 12000), c2 = zc (bp, 30000, 40000);
+    CHECK (std::abs (c1 - c2) >= 3, "LFO to pitch moves the pitch");
+    Patch pp = base; pp.v[lfoIdx (0, L_DEST)] = LD_PAN; pp.v[lfoIdx (0, L_DEP)] = 1.0f; pp.v[lfoIdx (0, L_RATE)] = 2.0f;
+    auto epOwner = std::make_unique<Engine>(); Engine& ep = *epOwner; ep.prepare (44100.0); ep.setPatch (pp.v.data()); ep.noteOn (60, 1.0f); ep.process (L.data(), R.data(), 44100);
+    double dp = 0; for (size_t i = 0; i < 44100; ++i) dp += std::fabs (L[i] - R[i]);
+    CHECK (dp > 10.0, "LFO to pan moves the sound between the speakers");
+
+    // velocity to level at 0 ignores velocity; velocity to cutoff darkens soft notes
+    Patch vz = base; vz.v[P_VEL_AMP] = 0.0f;
+    auto soft = renderPatch (vz, 60, 0.2f, 0.5f), loud = renderPatch (vz, 60, 1.0f, 0.5f);
+    float ps = 0, pl = 0; for (float x : soft) ps = std::max (ps, std::fabs (x)); for (float x : loud) pl = std::max (pl, std::fabs (x));
+    CHECK (std::fabs (ps - pl) < 1e-3f, "velocity to level = 0 plays every velocity at the same volume");
+    Patch vc = base; vc.v[P_F_ON] = 1; vc.v[P_F_HZ] = 2000; vc.v[P_VEL_CUT] = 3.0f; vc.v[P_VEL_AMP] = 0.0f;
+    auto dark = renderPatch (vc, 60, 0.1f, 0.5f), bright = renderPatch (vc, 60, 1.0f, 0.5f);
+    auto roughness = [] (const std::vector<float>& x) { double d = 0, a = 0; for (size_t i = 2; i < x.size(); ++i) { d += std::fabs (x[i] - 2 * x[i - 1] + x[i - 2]); a += std::fabs (x[i]); } return d / std::max (1e-9, a); };
+    CHECK (roughness (dark) < 0.7 * roughness (bright), "velocity to cutoff darkens soft notes");
+
+    // mod wheel to cutoff opens the filter
+    Patch mw = base; mw.v[P_F_ON] = 1; mw.v[P_F_HZ] = 800; mw.v[P_MW_CUT] = 3.0f;
+    auto run = [&] (float wheel) { Engine q; q.prepare (44100.0); q.setPatch (mw.v.data()); q.setModWheel (wheel); q.noteOn (48, 1.0f); std::vector<float> a (22050), c (22050); q.process (a.data(), c.data(), 22050); return roughness (a); };
+    CHECK (run (1.0f) > 1.3 * run (0.0f), "mod wheel to cutoff brightens the sound");
 }
 
 static void testFxAndPresets()
@@ -194,7 +256,7 @@ static void renderDemo (const char* path)
 
 int main (int argc, char** argv)
 {
-    testParams(); testBank(); testSound(); testFxAndPresets();
+    testParams(); testBank(); testSound(); testMod(); testFxAndPresets();
     std::printf ("demo\n"); renderDemo (argc > 1 ? argv[1] : "demo.wav");
     std::printf ("\n%d passed, %d failed\n", g_pass, g_fail);
     return g_fail == 0 ? 0 : 1;

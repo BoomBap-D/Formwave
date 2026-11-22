@@ -63,6 +63,12 @@ void FormwaveProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     float* left = buffer.getWritePointer (0);
     float* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : left;
 
+    {
+        const float ub = uiBend.load(), um = uiMod.load();
+        if (ub != lastUiBend_) { lastUiBend_ = ub; engine_.setBend (ub * 2.0f); }
+        if (um != lastUiMod_)  { lastUiMod_ = um;  engine_.setModWheel (um); }
+    }
+
     int pos = 0;
     for (const auto meta : midi)
     {

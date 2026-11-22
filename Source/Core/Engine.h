@@ -9,7 +9,7 @@ namespace fw
 class Engine
 {
 public:
-    static constexpr int kVoices = 16;
+    static constexpr int kVoices = 32;
 
     void prepare (double sr)
     {
@@ -31,12 +31,20 @@ public:
             for (auto& v : voices_) if (v.active()) { prev = v.baseHz(); v.kill(); }
         for (auto& v : voices_)
             if (v.active() && v.note() == note) v.kill();      // retrigger the same note cleanly
-        Voice* c = nullptr;
-        for (auto& v : voices_) if (! v.active()) { c = &v; break; }
-        if (! c) { c = &voices_[0]; for (auto& v : voices_) if (v.order() < c->order()) c = &v; }
-        ++order_;
-        c->start (patch_.data(), sr_, note, vel, prev, order_, (uint32_t) order_);
-        c->setBend (bend_); c->setModWheel (mod_);
+        const int count = std::max (1, std::min (7, (int) (patch_[P_UNI_N] + 0.5f) + 1));
+        const float det = patch_[P_UNI_DET], wid = patch_[P_UNI_WID], gain = 1.0f / std::sqrt ((float) count);
+        for (int u = 0; u < count; ++u)
+        {
+            Voice* c = nullptr;
+            for (auto& v : voices_) if (! v.active()) { c = &v; break; }
+            if (! c) { c = &voices_[0]; for (auto& v : voices_) if (v.order() < c->order()) c = &v; }
+            ++order_;
+            c->start (patch_.data(), sr_, note, vel, prev, order_, (uint32_t) order_);
+            const float x = count == 1 ? 0.0f : (float) u / (float) (count - 1) * 2.0f - 1.0f;
+            c->setUnison (x * det, x * wid, gain);
+            if (u > 0) c->randomisePhase();
+            c->setBend (bend_); c->setModWheel (mod_);
+        }
         sustained_[(size_t) note & 127] = false;
     }
     void noteOff (int note)
@@ -51,8 +59,11 @@ public:
     {
         sustain_ = on;
         if (! on)
+        {
             for (auto& v : voices_)
-                if (v.active() && v.held() && sustained_[(size_t) v.note() & 127]) { v.release(); sustained_[(size_t) v.note() & 127] = false; }
+                if (v.active() && v.held() && sustained_[(size_t) v.note() & 127]) v.release();
+            sustained_.fill (false);
+        }
     }
     void setBend (float semis) { bend_ = semis; for (auto& v : voices_) v.setBend (semis); }
     void setModWheel (float x) { mod_ = x; for (auto& v : voices_) v.setModWheel (x); }
@@ -64,9 +75,15 @@ public:
         const float* p = patch_.data();
         for (int i = 0; i < n; ++i)
         {
-            float s = 0.0f;
-            for (auto& v : voices_) { float o; if (v.process (o)) s += o; }
-            float l = s, r = s;
+            float l = 0.0f, r = 0.0f;
+            for (auto& v : voices_)
+            {
+                float o;
+                if (! v.process (o)) continue;
+                const float pn = v.pan();
+                l += o * (pn > 0.0f ? 1.0f - pn : 1.0f);
+                r += o * (pn < 0.0f ? 1.0f + pn : 1.0f);
+            }
             chorus_.process (l, r, p[P_CH_MIX], p[P_CH_RATE], p[P_CH_DEP]);
             delay_.process (l, r, p[P_DL_TIME], p[P_DL_FB], p[P_DL_MIX]);
             reverb_.process (l, r, p[P_RV_SIZE], p[P_RV_DAMP], p[P_RV_MIX]);

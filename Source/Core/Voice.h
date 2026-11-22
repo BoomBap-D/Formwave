@@ -85,6 +85,8 @@ public:
         for (auto& x : pink_) x = 0.0f;
         pop_ = 0.0f;
         bend_ = 0.0f; modWheel_ = 0.0f;
+        uniCents_ = 0.0f; pan_ = 0.0f; uniGain_ = 1.0f; panMod_ = 0.0f; ampMod_ = 1.0f; fmMod_ = 1.0f; lfoPitch_ = 0.0;
+        for (int k = 0; k < 2; ++k) { lfoPh_[k] = 0.0; lfoHold_[k] = 0.0f; }
         buildTables();
         control (0.0);
         noiseF_.set (nf_.type, nf_.hz, nf_.q, sr_);
@@ -93,6 +95,10 @@ public:
     void release() { held_ = false; if (active_ && ! drum_ && relT_ < 0.0) relT_ = (double) n_ / sr_; }
     void kill() { if (active_ && killT_ < 0.0) killT_ = (double) n_ / sr_; }
     void setBend (float semis) { bend_ = semis; }
+    // unison: detune (cents), pan (-1..1) and gain for this copy of the note
+    void setUnison (float cents, float pan, float gain) { uniCents_ = cents; pan_ = pan; uniGain_ = gain; }
+    void randomisePhase() { if (drum_) return; for (int i = 0; i < 4; ++i) phase_[i] = 0.5 * (rnd() + 1.0); }
+    float pan() const { return std::max (-1.0f, std::min (1.0f, pan_ + panMod_)); }
     void setModWheel (float x) { modWheel_ = x; }
 
     bool process (float& out)
@@ -132,7 +138,7 @@ public:
         }
 
         // ---- pitch modulation (one exp2 per sample, shared by all oscillators) ----
-        double cents = (double) bend_ * 100.0;
+        double cents = (double) bend_ * 100.0 + (double) uniCents_ + lfoPitch_;
         if (v[P_PE_ST] != 0.0f) cents += (double) v[P_PE_ST] * 100.0 * std::exp (-t / std::max (0.0005, (double) v[P_PE_T] / 3.0));
         if (vibDepth_ > 0.0)
         {
@@ -150,7 +156,7 @@ public:
             const double r = v[P_FM_R];
             modPhase_ += (double) base_ * r * pm / sr_; modPhase_ -= std::floor (modPhase_);
             const double e = 0.04 + 0.96 * std::exp (-t / std::max (0.0005, (double) v[P_FM_D] / 3.0));
-            fmDev = (double) v[P_FM_I] * base_ * r * e * std::sin (2.0 * kPi * modPhase_);
+            fmDev = (double) v[P_FM_I] * fmMod_ * base_ * r * e * std::sin (2.0 * kPi * modPhase_);
         }
 
         // ---- oscillators ----
@@ -187,7 +193,7 @@ public:
         if (fOn_) sum = oscF_.process (sum);
         if (nLvl_ > 0.0f) sum += noise (t);
         if (driveK_ > 1.0f) sum = std::tanh (driveK_ * sum) * driveNorm_;
-        out = sum * (float) amp * outGain_;
+        out = sum * (float) amp * outGain_ * uniGain_ * ampMod_;
         ++n_;
         return true;
     }
@@ -295,6 +301,40 @@ private:
         }
     }
 
+    // Two LFOs, each aimed at one destination. Runs at control rate (every 8 samples).
+    void updateLfos()
+    {
+        const float* v = pv_;
+        lfoPitch_ = 0.0; cutOct_ = 0.0; ampMod_ = 1.0f; fmMod_ = 1.0f; panMod_ = 0.0f;
+        for (int k = 0; k < 2; ++k)
+        {
+            const int dest = (int) (v[lfoIdx (k, L_DEST)] + 0.5f);
+            const double dep = v[lfoIdx (k, L_DEP)];
+            if (dest == LD_OFF || dep <= 0.0) continue;
+            const double before = lfoPh_[k];
+            lfoPh_[k] += (double) v[lfoIdx (k, L_RATE)] * 8.0 / sr_;
+            lfoPh_[k] -= std::floor (lfoPh_[k]);
+            double x;
+            switch ((int) (v[lfoIdx (k, L_SHAPE)] + 0.5f))
+            {
+                case LS_TRI:    x = 1.0 - 4.0 * std::fabs (lfoPh_[k] - 0.5) ; x = -x; break;
+                case LS_SAW:    x = 2.0 * lfoPh_[k] - 1.0; break;
+                case LS_SQUARE: x = lfoPh_[k] < 0.5 ? 1.0 : -1.0; break;
+                case LS_RANDOM: if (lfoPh_[k] < before || n_ == 0) lfoHold_[k] = rnd(); x = lfoHold_[k]; break;
+                default:        x = std::sin (2.0 * kPi * lfoPh_[k]); break;
+            }
+            switch (dest)
+            {
+                case LD_PITCH:  lfoPitch_ += dep * x * 300.0; break;
+                case LD_CUTOFF: cutOct_ += dep * x * 3.0; break;
+                case LD_AMP:    ampMod_ *= (float) (1.0 - dep * (0.5 - 0.5 * x)); break;
+                case LD_FM:     fmMod_ *= (float) std::max (0.0, 1.0 + dep * x); break;
+                case LD_PAN:    panMod_ += (float) (dep * x); break;
+                default: break;
+            }
+        }
+    }
+
     void control (double t)
     {
         const float* v = pv_;
@@ -308,11 +348,12 @@ private:
             decCoef_[i] = d > 0.0 ? (float) std::exp (-1.0 / (std::max (0.0005, d / 3.0) * sr_)) : 0.0f;
         }
         if (sumL > 0.0f) for (auto& l : lvl_) l /= sumL;
-        outGain_ = (float) std::pow (10.0, v[P_LEVEL] / 20.0) * vel_;
+        outGain_ = (float) std::pow (10.0, v[P_LEVEL] / 20.0) * ((1.0f - v[P_VEL_AMP]) + v[P_VEL_AMP] * vel_);
         const float dr = v[P_DRIVE];
         driveK_ = dr > 0.01f ? 1.0f + dr * 2.5f : 1.0f;
         driveNorm_ = 1.0f / std::tanh (driveK_);
-        vibDepth_ = (double) v[P_VIB_DEP] + (double) modWheel_ * 60.0;
+        vibDepth_ = (double) v[P_VIB_DEP] + (double) modWheel_ * v[P_MW_VIB];
+        updateLfos();
         nLvl_ = v[P_N_LVL];
         fOn_ = v[P_F_ON] > 0.5f;
         if (fOn_)
@@ -326,6 +367,7 @@ private:
                 lfoFPhase_ += v[P_F_LFO] * 8.0 / sr_; lfoFPhase_ -= std::floor (lfoFPhase_);
                 f *= std::exp2 (v[P_F_LFOD] * std::sin (2.0 * kPi * lfoFPhase_) / 1200.0);
             }
+            f *= std::exp2 ((double) v[P_VEL_CUT] * ((double) vel_ - 1.0) + (double) v[P_MW_CUT] * modWheel_ + cutOct_);
             oscF_.set ((int) (v[P_F_TYPE] + 0.5f), std::min (18000.0, std::max (30.0, f)), v[P_F_Q], sr_);
         }
         nf_.type = (int) (v[P_N_FT] + 0.5f); nf_.q = v[P_N_Q];
@@ -343,6 +385,9 @@ private:
     double phase_[4] {}, mph_[6] {}, modPhase_ = 0, lfoPhase_ = 0, lfoFPhase_ = 0, detune_[4] { 1, 1, 1, 1 };
     float lvl_[4] {}, env_[4] {}, decCoef_[4] {};
     float base_ = 0, prevHz_ = 0, vel_ = 1, outGain_ = 1, driveK_ = 1, driveNorm_ = 1, nLvl_ = 0, bend_ = 0, modWheel_ = 0;
+    float uniCents_ = 0, pan_ = 0, uniGain_ = 1, panMod_ = 0, ampMod_ = 1, fmMod_ = 1;
+    double lfoPh_[2] {}, lfoPitch_ = 0, cutOct_ = 0;
+    float lfoHold_[2] {};
     float pink_[7] {}, pop_ = 0;
     float table_[4][kTable + 1] {};
     NF nf_;

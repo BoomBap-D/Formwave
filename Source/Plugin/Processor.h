@@ -40,6 +40,8 @@ public:
     AudioTap tap;
     PresetStore presets;
     std::atomic<float> outputPeak { 0.0f };
+    // On-screen wheels (editor writes, audio thread applies): bend in semitone fraction -1..1, mod 0..1
+    std::atomic<float> uiBend { 0.0f }, uiMod { 0.0f };
 
     // Message thread: write every parameter from a patch (host is notified, so automation lanes follow).
     void applyPatch (const fw::Patch& p);
@@ -57,6 +59,7 @@ private:
     fw::Engine engine_;
     std::array<std::atomic<float>*, fw::P_COUNT> raw_ {};
     std::array<juce::RangedAudioParameter*, fw::P_COUNT> params_ {};
+    float lastUiBend_ = 0.0f, lastUiMod_ = 0.0f;
     juce::String presetName_ { "Init" };
     int presetIndex_ = -1;
 

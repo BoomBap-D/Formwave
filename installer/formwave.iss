@@ -2,7 +2,7 @@
 ; Install Inno Setup 6, open this file, press Compile.
 [Setup]
 AppName=Formwave
-AppVersion=0.1.0
+AppVersion=0.4.0
 AppPublisher=Formwave
 DefaultDirName={commonpf}\Formwave
 DefaultGroupName=Formwave
