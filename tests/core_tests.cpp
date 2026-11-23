@@ -187,7 +187,7 @@ static void testMod()
 
     // mod wheel to cutoff opens the filter
     Patch mw = base; mw.v[P_F_ON] = 1; mw.v[P_F_HZ] = 800; mw.v[P_MW_CUT] = 3.0f;
-    auto run = [&] (float wheel) { Engine q; q.prepare (44100.0); q.setPatch (mw.v.data()); q.setModWheel (wheel); q.noteOn (48, 1.0f); std::vector<float> a (22050), c (22050); q.process (a.data(), c.data(), 22050); return roughness (a); };
+    auto run = [&] (float wheel) { auto qOwner = std::make_unique<Engine>(); Engine& q = *qOwner; q.prepare (44100.0); q.setPatch (mw.v.data()); q.setModWheel (wheel); q.noteOn (48, 1.0f); std::vector<float> a (22050), c (22050); q.process (a.data(), c.data(), 22050); return roughness (a); };
     CHECK (run (1.0f) > 1.3 * run (0.0f), "mod wheel to cutoff brightens the sound");
 }
 
